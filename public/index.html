@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0f766e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Knee Rehab">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="icon" type="image/png" href="/icon-192.png">
+  <title>Knee Recovery</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html, body, #root {
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #fafafa;
+      overscroll-behavior: none;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      height: 8px;
+      background: #e5e7eb;
+      border-radius: 4px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 24px;
+      height: 24px;
+      background: #0f766e;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    textarea {
+      font-family: inherit;
+    }
+    .install-prompt {
+      position: fixed;
+      bottom: 80px;
+      left: 16px;
+      right: 16px;
+      background: #1a1a2e;
+      color: white;
+      padding: 16px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 1000;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+    .install-prompt button {
+      background: #0f766e;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .install-prompt .close {
+      background: transparent;
+      color: #9ca3af;
+      padding: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const phases = [
+      {
+        id: 1,
+        name: "Foundation",
+        weeks: "1-3",
+        focus: "Reduce swelling, restore basic ROM and muscle activation",
+        exercises: [
+          { name: "Heel Slides", sets: 1, reps: 20, description: "Bend knee, pull heel toward buttocks on surface" },
+          { name: "Ankle Pumps", sets: 1, reps: 20, description: "Move foot forward and backward on the floor" },
+          { name: "Quad Sets", sets: 1, reps: 10, hold: "10s", description: "Press knee onto towel roll, lift heel, hold" },
+          { name: "Sit to Stand", sets: 3, reps: 10, description: "Feet under knees, equal weight, stand/sit slowly" }
+        ],
+        frequency: "Daily",
+        milestones: ["Pain <3/10 during exercises", "No swelling 24hrs post-exercise", "Can complete all exercises"]
+      },
+      {
+        id: 2,
+        name: "Mobility",
+        weeks: "4-6",
+        focus: "Increase ROM, begin weight-bearing strength",
+        exercises: [
+          { name: "Wall Sits", sets: 3, hold: "20-30s", description: "Back against wall, slide down to 45°" },
+          { name: "Single-Leg Balance", sets: 3, hold: "30s", description: "Balance on each leg, use wall if needed" },
+          { name: "Mini Squats", sets: 3, reps: 15, description: "0-45° depth only" },
+          { name: "Heel Raises", sets: 3, reps: 15, description: "Both legs, slow and controlled" },
+          { name: "Hamstring Curls", sets: 3, reps: 15, description: "No weight, prone position" }
+        ],
+        frequency: "3-4x/week",
+        milestones: ["ROM within 20° of uninjured leg", "30-second single-leg balance", "No pain during mini squats"]
+      },
+      {
+        id: 3,
+        name: "Strength",
+        weeks: "7-10",
+        focus: "Build functional strength and stability",
+        exercises: [
+          { name: "Step-Ups", sets: 3, reps: 12, description: "Low step (6-8\"), each leg" },
+          { name: "Lateral Band Walks", sets: 3, reps: 15, description: "Each direction with resistance band" },
+          { name: "Single-Leg RDL", sets: 3, reps: 10, description: "Romanian deadlift, light or no weight" },
+          { name: "Squats to 90°", sets: 3, reps: 12, description: "Full depth to parallel" },
+          { name: "Box Squats", sets: 3, reps: 12, description: "Touch and go to bench/box" },
+          { name: "Stationary Bike", sets: 1, duration: "15-20 min", description: "Low resistance" }
+        ],
+        frequency: "3-4x/week",
+        milestones: ["Full ROM equal to uninjured leg", "60-second single-leg balance", "Can complete step-ups pain-free"]
+      },
+      {
+        id: 4,
+        name: "Dynamic",
+        weeks: "11-14",
+        focus: "Dynamic movement and sport-specific prep",
+        exercises: [
+          { name: "Bulgarian Split Squats", sets: 3, reps: 10, description: "Rear foot elevated, each leg" },
+          { name: "Lateral Lunges", sets: 3, reps: 12, description: "Each side, controlled" },
+          { name: "Single-Leg Box Squats", sets: 3, reps: 8, description: "To bench height" },
+          { name: "Jump Rope", sets: 1, duration: "2-3 min", description: "Low impact, both feet" },
+          { name: "Bosu Ball Squats", sets: 3, reps: 12, description: "Balance challenge" },
+          { name: "Backward Sled/Walks", sets: 3, distance: "20m", description: "Backward movement focus" }
+        ],
+        frequency: "3x/week",
+        milestones: ["Can perform lateral movements pain-free", "Good balance on unstable surfaces", "No swelling after dynamic work"]
+      },
+      {
+        id: 5,
+        name: "Power",
+        weeks: "15-18",
+        focus: "Plyometrics and board-specific movements",
+        exercises: [
+          { name: "Box Jumps", sets: 3, reps: 8, description: "Progressive height" },
+          { name: "Lateral Bounds", sets: 3, reps: 10, description: "Each side, stick landing" },
+          { name: "Single-Leg Hops", sets: 3, reps: 8, description: "Each leg, controlled" },
+          { name: "Balance Board", sets: 3, duration: "1 min", description: "Maintain balance" },
+          { name: "Rotational Band Work", sets: 3, reps: 12, description: "Core rotation with resistance" },
+          { name: "Indo Board Practice", sets: 1, duration: "5-10 min", description: "Snowboard simulation" }
+        ],
+        frequency: "2-3x/week",
+        milestones: ["Can land jumps softly without pain", "90% hop test vs uninjured leg", "Good rotational control"]
+      },
+      {
+        id: 6,
+        name: "Return to Sport",
+        weeks: "19-24",
+        focus: "Final preparation for snowboarding",
+        exercises: [
+          { name: "Plyometrics on Uneven Surface", sets: 3, reps: 8, description: "Grass, sand, or soft ground" },
+          { name: "Agility Ladder", sets: 3, duration: "1 min", description: "Direction changes" },
+          { name: "Jump with Rotation", sets: 3, reps: 8, description: "180° turns" },
+          { name: "Indo Board Advanced", sets: 1, duration: "10 min", description: "Dynamic movements" },
+          { name: "Snowboard Simulation", sets: 3, duration: "2 min", description: "Edge-to-edge transitions" },
+          { name: "Full Sport Drills", sets: 1, duration: "20-30 min", description: "Sport-specific conditioning" }
+        ],
+        frequency: "3x/week",
+        milestones: ["Surgeon clearance obtained", "Pass hop test (>90%)", "Full strength testing passed", "Confident in knee stability"]
+      }
+    ];
+
+    function KneeRehabApp() {
+      const [currentView, setCurrentView] = useState('dashboard');
+      const [currentPhase, setCurrentPhase] = useState(1);
+      const [workoutLog, setWorkoutLog] = useState([]);
+      const [todayLog, setTodayLog] = useState({
+        date: new Date().toISOString().split('T')[0],
+        painAM: 5,
+        painPM: 5,
+        swelling: 'none',
+        exercisesCompleted: [],
+        notes: '',
+        iced: false,
+        elevated: false
+      });
+      const [completedMilestones, setCompletedMilestones] = useState({});
+      const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+      const [deferredPrompt, setDeferredPrompt] = useState(null);
+
+      // Load saved data
+      useEffect(() => {
+        const saved = localStorage.getItem('kneeRehabData');
+        if (saved) {
+          try {
+            const data = JSON.parse(saved);
+            if (data.currentPhase) setCurrentPhase(data.currentPhase);
+            if (data.workoutLog) setWorkoutLog(data.workoutLog);
+            if (data.completedMilestones) setCompletedMilestones(data.completedMilestones);
+          } catch (e) {
+            console.log('Error loading data');
+          }
+        }
+      }, []);
+
+      // Save data
+      useEffect(() => {
+        localStorage.setItem('kneeRehabData', JSON.stringify({
+          currentPhase,
+          workoutLog,
+          completedMilestones
+        }));
+      }, [currentPhase, workoutLog, completedMilestones]);
+
+      // PWA install prompt
+      useEffect(() => {
+        const handler = (e) => {
+          e.preventDefault();
+          setDeferredPrompt(e);
+          const dismissed = localStorage.getItem('installPromptDismissed');
+          if (!dismissed) {
+            setShowInstallPrompt(true);
+          }
+        };
+        window.addEventListener('beforeinstallprompt', handler);
+        return () => window.removeEventListener('beforeinstallprompt', handler);
+      }, []);
+
+      const handleInstall = async () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          setDeferredPrompt(null);
+          setShowInstallPrompt(false);
+        }
+      };
+
+      const dismissInstall = () => {
+        setShowInstallPrompt(false);
+        localStorage.setItem('installPromptDismissed', 'true');
+      };
+
+      const phase = phases[currentPhase - 1];
+
+      const toggleExercise = (exerciseName) => {
+        setTodayLog(prev => ({
+          ...prev,
+          exercisesCompleted: prev.exercisesCompleted.includes(exerciseName)
+            ? prev.exercisesCompleted.filter(e => e !== exerciseName)
+            : [...prev.exercisesCompleted, exerciseName]
+        }));
+      };
+
+      const saveWorkout = () => {
+        const newLog = { ...todayLog, phase: currentPhase, timestamp: new Date().toISOString() };
+        setWorkoutLog(prev => [...prev, newLog]);
+        setTodayLog({
+          date: new Date().toISOString().split('T')[0],
+          painAM: 5, painPM: 5, swelling: 'none',
+          exercisesCompleted: [], notes: '', iced: false, elevated: false
+        });
+        setCurrentView('dashboard');
+      };
+
+      const toggleMilestone = (phaseId, milestone) => {
+        const key = `${phaseId}-${milestone}`;
+        setCompletedMilestones(prev => ({ ...prev, [key]: !prev[key] }));
+      };
+
+      const getWeekStats = () => {
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        const recentLogs = workoutLog.filter(log => new Date(log.timestamp) > weekAgo);
+        if (recentLogs.length === 0) return { workouts: 0, avgPain: '-', trend: 'neutral' };
+        const avgPain = (recentLogs.reduce((sum, log) => sum + ((log.painAM + log.painPM) / 2), 0) / recentLogs.length).toFixed(1);
+        return { workouts: recentLogs.length, avgPain, trend: 'neutral' };
+      };
+
+      const stats = getWeekStats();
+      const phaseMilestonesComplete = (phaseId) => {
+        const p = phases[phaseId - 1];
+        return p.milestones.every(m => completedMilestones[`${phaseId}-${m}`]);
+      };
+
+      const NavBar = () => (
+        <div style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0,
+          background: 'white', borderTop: '1px solid #e5e7eb',
+          display: 'flex', justifyContent: 'space-around',
+          padding: '8px 0 max(16px, env(safe-area-inset-bottom))',
+          zIndex: 100
+        }}>
+          {[
+            { id: 'dashboard', icon: '🏠', label: 'Home' },
+            { id: 'workout', icon: '💪', label: 'Workout' },
+            { id: 'history', icon: '📊', label: 'History' },
+            { id: 'plan', icon: '🗺️', label: 'Plan' }
+          ].map(item => (
+            <button
+              key={item.id}
+              onClick={() => setCurrentView(item.id)}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
+                opacity: currentView === item.id ? 1 : 0.5, padding: '4px 12px'
+              }}
+            >
+              <span style={{ fontSize: '20px' }}>{item.icon}</span>
+              <span style={{ fontSize: '10px', color: '#6b7280' }}>{item.label}</span>
+            </button>
+          ))}
+        </div>
+      );
+
+      const DashboardView = () => (
+        <div style={{ padding: '20px', paddingTop: 'max(20px, env(safe-area-inset-top))', paddingBottom: '100px', overflowY: 'auto', height: '100%' }}>
+          <div style={{ marginBottom: '24px' }}>
+            <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1a1a2e', marginBottom: '2px' }}>
+              Knee Recovery
+            </h1>
+            <p style={{ color: '#6b7280', fontSize: '14px' }}>Your path back to the slopes 🏂</p>
+          </div>
+
+          <div style={{
+            background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
+            borderRadius: '16px', padding: '20px', marginBottom: '16px',
+            color: 'white', position: 'relative', overflow: 'hidden'
+          }}>
+            <div style={{
+              position: 'absolute', top: '-20px', right: '-20px',
+              width: '100px', height: '100px',
+              background: 'rgba(255,255,255,0.1)', borderRadius: '50%'
+            }} />
+            <p style={{ fontSize: '11px', opacity: 0.9, marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              Current Phase
+            </p>
+            <h2 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '2px' }}>{phase.name}</h2>
+            <p style={{ fontSize: '13px', opacity: 0.85 }}>Weeks {phase.weeks} • {phase.frequency}</p>
+            <p style={{ fontSize: '12px', opacity: 0.75, marginTop: '8px' }}>{phase.focus}</p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '20px' }}>
+            <div style={{ background: '#f8fafc', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
+              <p style={{ fontSize: '24px', fontWeight: '700', color: '#0f766e' }}>{stats.workouts}</p>
+              <p style={{ fontSize: '11px', color: '#6b7280' }}>This Week</p>
+            </div>
+            <div style={{ background: '#f8fafc', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
+              <p style={{ fontSize: '24px', fontWeight: '700', color: stats.avgPain <= 3 ? '#10b981' : stats.avgPain <= 5 ? '#f59e0b' : '#ef4444' }}>
+                {stats.avgPain}
+              </p>
+              <p style={{ fontSize: '11px', color: '#6b7280' }}>Avg Pain</p>
+            </div>
+            <div style={{ background: '#f8fafc', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
+              <p style={{ fontSize: '24px', fontWeight: '700', color: '#0f766e' }}>{currentPhase}/6</p>
+              <p style={{ fontSize: '11px', color: '#6b7280' }}>Phase</p>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '20px' }}>
+            <p style={{ fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '10px' }}>Progress</p>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              {phases.map((p) => (
+                <div
+                  key={p.id}
+                  onClick={() => setCurrentPhase(p.id)}
+                  style={{
+                    flex: 1, height: '6px', borderRadius: '3px',
+                    background: p.id < currentPhase ? '#0f766e' : p.id === currentPhase ? '#14b8a6' : '#e5e7eb',
+                    cursor: 'pointer'
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
+            <button
+              onClick={() => setCurrentView('workout')}
+              style={{
+                background: '#1a1a2e', color: 'white', border: 'none',
+                borderRadius: '12px', padding: '16px', fontSize: '14px',
+                fontWeight: '600', cursor: 'pointer'
+              }}
+            >
+              💪 Start Workout
+            </button>
+            <button
+              onClick={() => setCurrentView('exercises')}
+              style={{
+                background: 'white', color: '#374151',
+                border: '2px solid #e5e7eb', borderRadius: '12px',
+                padding: '16px', fontSize: '14px', fontWeight: '600', cursor: 'pointer'
+              }}
+            >
+              📋 Exercises
+            </button>
+          </div>
+
+          <div style={{
+            background: 'white', borderRadius: '14px', padding: '16px', border: '1px solid #e5e7eb'
+          }}>
+            <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '12px' }}>
+              Phase {currentPhase} Milestones
+            </h3>
+            {phase.milestones.map((milestone, i) => {
+              const key = `${currentPhase}-${milestone}`;
+              const isComplete = completedMilestones[key];
+              return (
+                <div
+                  key={i}
+                  onClick={() => toggleMilestone(currentPhase, milestone)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                    padding: '10px 0',
+                    borderBottom: i < phase.milestones.length - 1 ? '1px solid #f3f4f6' : 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <div style={{
+                    width: '22px', height: '22px', borderRadius: '50%',
+                    border: isComplete ? 'none' : '2px solid #d1d5db',
+                    background: isComplete ? '#0f766e' : 'transparent',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'white', fontSize: '12px', flexShrink: 0
+                  }}>
+                    {isComplete && '✓'}
+                  </div>
+                  <p style={{
+                    fontSize: '13px',
+                    color: isComplete ? '#9ca3af' : '#374151',
+                    textDecoration: isComplete ? 'line-through' : 'none'
+                  }}>
+                    {milestone}
+                  </p>
+                </div>
+              );
+            })}
+            {phaseMilestonesComplete(currentPhase) && currentPhase < 6 && (
+              <button
+                onClick={() => setCurrentPhase(currentPhase + 1)}
+                style={{
+                  width: '100%', marginTop: '12px',
+                  background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
+                  color: 'white', border: 'none', borderRadius: '10px',
+                  padding: '12px', fontSize: '14px', fontWeight: '600', cursor: 'pointer'
+                }}
+              >
+                Advance to Phase {currentPhase + 1} →
+              </button>
+            )}
+          </div>
+          <NavBar />
+        </div>
+      );
+
+      const WorkoutView = () => (
+        <div style={{ padding: '20px', paddingTop: 'max(20px, env(safe-area-inset-top))', paddingBottom: '100px', overflowY: 'auto', height: '100%' }}>
+          <button
+            onClick={() => setCurrentView('dashboard')}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: '13px', marginBottom: '12px', padding: 0 }}
+          >
+            ← Back
+          </button>
+
+          <h1 style={{ fontSize: '22px', fontWeight: '700', color: '#1a1a2e', marginBottom: '20px' }}>
+            Today's Workout
+          </h1>
+
+          <div style={{ background: '#f8fafc', borderRadius: '14px', padding: '16px', marginBottom: '16px' }}>
+            <h3 style={{ fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '14px' }}>
+              How are you feeling?
+            </h3>
+            
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '6px' }}>
+                Morning Pain: {todayLog.painAM}/10
+              </label>
+              <input
+                type="range" min="0" max="10" value={todayLog.painAM}
+                onChange={(e) => setTodayLog(prev => ({ ...prev, painAM: parseInt(e.target.value) }))}
+                style={{ width: '100%' }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '6px' }}>
+                Current Pain: {todayLog.painPM}/10
+              </label>
+              <input
+                type="range" min="0" max="10" value={todayLog.painPM}
+                onChange={(e) => setTodayLog(prev => ({ ...prev, painPM: parseInt(e.target.value) }))}
+                style={{ width: '100%' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '6px' }}>Swelling</label>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {['none', 'mild', 'moderate', 'severe'].map(level => (
+                  <button
+                    key={level}
+                    onClick={() => setTodayLog(prev => ({ ...prev, swelling: level }))}
+                    style={{
+                      flex: 1, padding: '8px 4px',
+                      border: todayLog.swelling === level ? '2px solid #0f766e' : '2px solid #e5e7eb',
+                      background: todayLog.swelling === level ? '#ecfdf5' : 'white',
+                      borderRadius: '8px', fontSize: '11px', fontWeight: '500',
+                      color: todayLog.swelling === level ? '#0f766e' : '#6b7280',
+                      cursor: 'pointer', textTransform: 'capitalize'
+                    }}
+                  >
+                    {level}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ background: 'white', borderRadius: '14px', padding: '16px', border: '1px solid #e5e7eb', marginBottom: '16px' }}>
+            <h3 style={{ fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '12px' }}>
+              {phase.name} Exercises
+            </h3>
+            
+            {phase.exercises.map((exercise, i) => {
+              const isCompleted = todayLog.exercisesCompleted.includes(exercise.name);
+              return (
+                <div
+                  key={i}
+                  onClick={() => toggleExercise(exercise.name)}
+                  style={{
+                    display: 'flex', alignItems: 'flex-start', gap: '10px',
+                    padding: '12px 0',
+                    borderBottom: i < phase.exercises.length - 1 ? '1px solid #f3f4f6' : 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <div style={{
+                    width: '24px', height: '24px', borderRadius: '6px',
+                    border: isCompleted ? 'none' : '2px solid #d1d5db',
+                    background: isCompleted ? '#0f766e' : 'transparent',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'white', fontSize: '14px', flexShrink: 0, marginTop: '2px'
+                  }}>
+                    {isCompleted && '✓'}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{
+                      fontSize: '14px', fontWeight: '500',
+                      color: isCompleted ? '#9ca3af' : '#374151',
+                      textDecoration: isCompleted ? 'line-through' : 'none'
+                    }}>
+                      {exercise.name}
+                    </p>
+                    <p style={{ fontSize: '12px', color: '#9ca3af', marginTop: '2px' }}>
+                      {exercise.sets && `${exercise.sets}×`}{exercise.reps || exercise.hold || exercise.duration}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ background: '#f0fdfa', borderRadius: '14px', padding: '16px', marginBottom: '16px' }}>
+            <h3 style={{ fontSize: '13px', fontWeight: '600', color: '#0f766e', marginBottom: '12px' }}>Recovery</h3>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => setTodayLog(prev => ({ ...prev, iced: !prev.iced }))}
+                style={{
+                  flex: 1, padding: '12px',
+                  border: todayLog.iced ? '2px solid #0f766e' : '2px solid #99f6e4',
+                  background: todayLog.iced ? '#0f766e' : 'white',
+                  borderRadius: '10px', fontSize: '13px', fontWeight: '500',
+                  color: todayLog.iced ? 'white' : '#0f766e', cursor: 'pointer'
+                }}
+              >
+                🧊 Iced
+              </button>
+              <button
+                onClick={() => setTodayLog(prev => ({ ...prev, elevated: !prev.elevated }))}
+                style={{
+                  flex: 1, padding: '12px',
+                  border: todayLog.elevated ? '2px solid #0f766e' : '2px solid #99f6e4',
+                  background: todayLog.elevated ? '#0f766e' : 'white',
+                  borderRadius: '10px', fontSize: '13px', fontWeight: '500',
+                  color: todayLog.elevated ? 'white' : '#0f766e', cursor: 'pointer'
+                }}
+              >
+                🦵 Elevated
+              </button>
+            </div>
+          </div>
+
+          <textarea
+            value={todayLog.notes}
+            onChange={(e) => setTodayLog(prev => ({ ...prev, notes: e.target.value }))}
+            placeholder="Notes (optional)"
+            style={{
+              width: '100%', minHeight: '80px', padding: '12px',
+              border: '2px solid #e5e7eb', borderRadius: '10px',
+              fontSize: '13px', resize: 'none', marginBottom: '16px', boxSizing: 'border-box'
+            }}
+          />
+
+          <button
+            onClick={saveWorkout}
+            disabled={todayLog.exercisesCompleted.length === 0}
+            style={{
+              width: '100%', padding: '16px',
+              background: todayLog.exercisesCompleted.length === 0 ? '#d1d5db' : 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
+              color: 'white', border: 'none', borderRadius: '12px',
+              fontSize: '15px', fontWeight: '600',
+              cursor: todayLog.exercisesCompleted.length === 0 ? 'not-allowed' : 'pointer'
+            }}
+          >
+            Save Workout ({todayLog.exercisesCompleted.length}/{phase.exercises.length})
+          </button>
+          <NavBar />
+        </div>
+      );
+
+      const HistoryView = () => (
+        <div style={{ padding: '20px', paddingTop: 'max(20px, env(safe-area-inset-top))', paddingBottom: '100px', overflowY: 'auto', height: '100%' }}>
+          <h1 style={{ fontSize: '22px', fontWeight: '700', color: '#1a1a2e', marginBottom: '20px' }}>History</h1>
+
+          {workoutLog.length === 0 ? (
+            <div style={{ background: '#f8fafc', borderRadius: '14px', padding: '40px 20px', textAlign: 'center' }}>
+              <p style={{ fontSize: '40px', marginBottom: '12px' }}>📝</p>
+              <p style={{ color: '#6b7280', fontSize: '14px' }}>No workouts yet</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {[...workoutLog].reverse().map((log, i) => (
+                <div key={i} style={{ background: 'white', borderRadius: '12px', padding: '14px', border: '1px solid #e5e7eb' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <div>
+                      <p style={{ fontWeight: '600', color: '#374151', fontSize: '14px' }}>
+                        {new Date(log.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                      </p>
+                      <p style={{ fontSize: '11px', color: '#9ca3af' }}>Phase {log.phase}</p>
+                    </div>
+                    <div style={{
+                      background: log.painAM <= 3 ? '#dcfce7' : log.painAM <= 5 ? '#fef3c7' : '#fee2e2',
+                      padding: '4px 10px', borderRadius: '16px', fontSize: '12px', fontWeight: '500',
+                      color: log.painAM <= 3 ? '#166534' : log.painAM <= 5 ? '#92400e' : '#991b1b'
+                    }}>
+                      Pain: {((log.painAM + log.painPM) / 2).toFixed(1)}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {log.exercisesCompleted.map((ex, j) => (
+                      <span key={j} style={{ background: '#f3f4f6', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', color: '#6b7280' }}>
+                        {ex}
+                      </span>
+                    ))}
+                  </div>
+                  {log.notes && (
+                    <p style={{ fontSize: '12px', color: '#9ca3af', marginTop: '10px', fontStyle: 'italic' }}>"{log.notes}"</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <NavBar />
+        </div>
+      );
+
+      const PlanView = () => (
+        <div style={{ padding: '20px', paddingTop: 'max(20px, env(safe-area-inset-top))', paddingBottom: '100px', overflowY: 'auto', height: '100%' }}>
+          <h1 style={{ fontSize: '22px', fontWeight: '700', color: '#1a1a2e', marginBottom: '6px' }}>Your Journey</h1>
+          <p style={{ color: '#6b7280', fontSize: '13px', marginBottom: '20px' }}>24 weeks to snowboarding</p>
+
+          {phases.map((p) => {
+            const isCurrentPhase = p.id === currentPhase;
+            const isCompleted = p.id < currentPhase;
+            
+            return (
+              <div
+                key={p.id}
+                onClick={() => setCurrentPhase(p.id)}
+                style={{
+                  background: isCurrentPhase ? 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)' : 'white',
+                  borderRadius: '14px', padding: '16px', marginBottom: '10px',
+                  border: isCurrentPhase ? 'none' : '1px solid #e5e7eb',
+                  cursor: 'pointer', position: 'relative'
+                }}
+              >
+                {isCompleted && (
+                  <div style={{
+                    position: 'absolute', top: '12px', right: '12px',
+                    background: '#dcfce7', color: '#166534',
+                    padding: '2px 8px', borderRadius: '12px', fontSize: '10px', fontWeight: '600'
+                  }}>
+                    ✓ Done
+                  </div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                  <div style={{
+                    width: '28px', height: '28px', borderRadius: '50%',
+                    background: isCurrentPhase ? 'rgba(255,255,255,0.2)' : isCompleted ? '#0f766e' : '#e5e7eb',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: isCurrentPhase || isCompleted ? 'white' : '#9ca3af',
+                    fontWeight: '600', fontSize: '13px'
+                  }}>
+                    {isCompleted ? '✓' : p.id}
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '15px', fontWeight: '600', color: isCurrentPhase ? 'white' : '#374151' }}>
+                      {p.name}
+                    </h3>
+                    <p style={{ fontSize: '11px', color: isCurrentPhase ? 'rgba(255,255,255,0.8)' : '#9ca3af' }}>
+                      Weeks {p.weeks}
+                    </p>
+                  </div>
+                </div>
+                <p style={{ fontSize: '12px', color: isCurrentPhase ? 'rgba(255,255,255,0.9)' : '#6b7280' }}>
+                  {p.focus}
+                </p>
+              </div>
+            );
+          })}
+
+          <div style={{
+            background: 'linear-gradient(135deg, #1e3a5f 0%, #3b82f6 100%)',
+            borderRadius: '14px', padding: '20px', textAlign: 'center', color: 'white', marginTop: '16px'
+          }}>
+            <p style={{ fontSize: '36px', marginBottom: '6px' }}>🏂</p>
+            <h3 style={{ fontSize: '16px', fontWeight: '700' }}>Back on the Mountain</h3>
+            <p style={{ fontSize: '12px', opacity: 0.8 }}>With surgeon clearance</p>
+          </div>
+          <NavBar />
+        </div>
+      );
+
+      const ExercisesView = () => (
+        <div style={{ padding: '20px', paddingTop: 'max(20px, env(safe-area-inset-top))', paddingBottom: '100px', overflowY: 'auto', height: '100%' }}>
+          <button
+            onClick={() => setCurrentView('dashboard')}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: '13px', marginBottom: '12px', padding: 0 }}
+          >
+            ← Back
+          </button>
+
+          <h1 style={{ fontSize: '22px', fontWeight: '700', color: '#1a1a2e', marginBottom: '6px' }}>
+            Phase {currentPhase}: {phase.name}
+          </h1>
+          <p style={{ color: '#6b7280', fontSize: '13px', marginBottom: '20px' }}>{phase.focus}</p>
+
+          {phase.exercises.map((exercise, i) => (
+            <div key={i} style={{ background: 'white', borderRadius: '12px', padding: '16px', marginBottom: '10px', border: '1px solid #e5e7eb' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <h3 style={{ fontSize: '15px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>
+                  {exercise.name}
+                </h3>
+                <div style={{
+                  background: '#f0fdfa', padding: '3px 8px', borderRadius: '6px',
+                  fontSize: '11px', color: '#0f766e', fontWeight: '500'
+                }}>
+                  {exercise.sets && `${exercise.sets}×`}{exercise.reps || exercise.hold || exercise.duration}
+                </div>
+              </div>
+              <p style={{ fontSize: '13px', color: '#6b7280' }}>{exercise.description}</p>
+            </div>
+          ))}
+
+          <div style={{ background: '#fef2f2', borderRadius: '12px', padding: '16px', marginTop: '16px' }}>
+            <h3 style={{ fontSize: '13px', fontWeight: '600', color: '#991b1b', marginBottom: '10px' }}>
+              ⚠️ Stop if you experience:
+            </h3>
+            <p style={{ fontSize: '12px', color: '#991b1b', lineHeight: 1.5 }}>
+              Sharp pain • Knee giving out • Significant swelling • Locking sensation
+            </p>
+          </div>
+          <NavBar />
+        </div>
+      );
+
+      return (
+        <div style={{ height: '100%', width: '100%', maxWidth: '480px', margin: '0 auto', background: '#fafafa', position: 'relative' }}>
+          {currentView === 'dashboard' && <DashboardView />}
+          {currentView === 'workout' && <WorkoutView />}
+          {currentView === 'history' && <HistoryView />}
+          {currentView === 'plan' && <PlanView />}
+          {currentView === 'exercises' && <ExercisesView />}
+          
+          {showInstallPrompt && (
+            <div className="install-prompt">
+              <div>
+                <p style={{ fontWeight: '600', marginBottom: '2px' }}>Install App</p>
+                <p style={{ fontSize: '12px', opacity: 0.8 }}>Add to home screen for quick access</p>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="close" onClick={dismissInstall}>✕</button>
+                <button onClick={handleInstall}>Install</button>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<KneeRehabApp />);
+  </script>
+
+  <script>
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(reg => console.log('SW registered'))
+          .catch(err => console.log('SW registration failed'));
+      });
+    }
+  </script>
+</body>
+</html>
