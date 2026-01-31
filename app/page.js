@@ -115,11 +115,14 @@ export default function KneeRehabApp() {
   const [completedMilestones, setCompletedMilestones] = useState({})
   const [isInstalled, setIsInstalled] = useState(false)
   const [deferredPrompt, setDeferredPrompt] = useState(null)
+  const [showDisclaimer, setShowDisclaimer] = useState(false)
+  const [errorMessage, setErrorMessage] = useState(null)
+  const [showDataMenu, setShowDataMenu] = useState(false)
 
   // Register service worker and load saved data
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/service-worker.js')
+      navigator.serviceWorker.register('/sw.js')
         .then((reg) => console.log('Service worker registered'))
         .catch((err) => console.log('Service worker registration failed:', err))
     }
@@ -135,16 +138,26 @@ export default function KneeRehabApp() {
       setDeferredPrompt(e)
     })
 
+    // Check if disclaimer has been acknowledged
+    const disclaimerAcknowledged = localStorage.getItem('disclaimerAcknowledged')
+    if (!disclaimerAcknowledged) {
+      setShowDisclaimer(true)
+    }
+
     // Load saved data
     const saved = localStorage.getItem('kneeRehabData')
     if (saved) {
       try {
         const data = JSON.parse(saved)
+        if (typeof data !== 'object' || data === null) {
+          throw new Error('Invalid data format')
+        }
         setCurrentPhase(data.currentPhase || 1)
-        setWorkoutLog(data.workoutLog || [])
+        setWorkoutLog(Array.isArray(data.workoutLog) ? data.workoutLog : [])
         setCompletedMilestones(data.completedMilestones || {})
       } catch (e) {
-        console.log('Error loading saved data')
+        setErrorMessage('Your saved data appears to be corrupted. Starting fresh.')
+        localStorage.removeItem('kneeRehabData')
       }
     }
   }, [])
@@ -178,8 +191,26 @@ export default function KneeRehabApp() {
   }
 
   const saveWorkout = () => {
+    // Validate inputs
+    const painAM = Math.min(10, Math.max(0, parseInt(todayLog.painAM) || 0))
+    const painPM = Math.min(10, Math.max(0, parseInt(todayLog.painPM) || 0))
+    const validSwelling = ['none', 'mild', 'moderate', 'severe'].includes(todayLog.swelling)
+      ? todayLog.swelling
+      : 'none'
+
+    // Validate date
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+    const validDate = dateRegex.test(todayLog.date) ? todayLog.date : new Date().toISOString().split('T')[0]
+
     const newLog = {
-      ...todayLog,
+      date: validDate,
+      painAM,
+      painPM,
+      swelling: validSwelling,
+      exercisesCompleted: todayLog.exercisesCompleted,
+      notes: todayLog.notes.slice(0, 500), // Limit notes length
+      iced: Boolean(todayLog.iced),
+      elevated: Boolean(todayLog.elevated),
       phase: currentPhase,
       timestamp: new Date().toISOString()
     }
@@ -222,6 +253,202 @@ export default function KneeRehabApp() {
     const p = phases[phaseId - 1]
     return p.milestones.every(m => completedMilestones[`${phaseId}-${m}`])
   }
+
+  const acknowledgeDisclaimer = () => {
+    localStorage.setItem('disclaimerAcknowledged', 'true')
+    setShowDisclaimer(false)
+  }
+
+  const exportData = () => {
+    const data = {
+      currentPhase,
+      workoutLog,
+      completedMilestones,
+      exportedAt: new Date().toISOString()
+    }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `knee-rehab-backup-${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    setShowDataMenu(false)
+  }
+
+  const importData = (event) => {
+    const file = event.target.files[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result)
+        if (typeof data !== 'object' || data === null) {
+          throw new Error('Invalid format')
+        }
+        if (data.currentPhase) setCurrentPhase(data.currentPhase)
+        if (Array.isArray(data.workoutLog)) setWorkoutLog(data.workoutLog)
+        if (data.completedMilestones) setCompletedMilestones(data.completedMilestones)
+        setErrorMessage(null)
+        setShowDataMenu(false)
+        alert('Data imported successfully!')
+      } catch (err) {
+        setErrorMessage('Failed to import data. Please check the file format.')
+      }
+    }
+    reader.readAsText(file)
+    event.target.value = ''
+  }
+
+  const DisclaimerModal = () => (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.7)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000,
+      padding: '20px'
+    }}>
+      <div style={{
+        background: 'white',
+        borderRadius: '16px',
+        padding: '24px',
+        maxWidth: '400px',
+        width: '100%'
+      }}>
+        <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#1a1a2e', marginBottom: '16px' }}>
+          Medical Disclaimer
+        </h2>
+        <div style={{ fontSize: '14px', color: '#374151', lineHeight: 1.6, marginBottom: '20px' }}>
+          <p style={{ marginBottom: '12px' }}>
+            This app is for <strong>informational purposes only</strong> and is not a substitute for professional medical advice, diagnosis, or treatment.
+          </p>
+          <p style={{ marginBottom: '12px' }}>
+            Always consult with your surgeon, physical therapist, or healthcare provider before starting or modifying any rehabilitation program.
+          </p>
+          <p>
+            If you experience severe pain, swelling, instability, or any concerning symptoms, stop exercising and contact your healthcare provider immediately.
+          </p>
+        </div>
+        <button
+          onClick={acknowledgeDisclaimer}
+          style={{
+            width: '100%',
+            padding: '14px',
+            background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '10px',
+            fontSize: '15px',
+            fontWeight: '600',
+            cursor: 'pointer'
+          }}
+        >
+          I Understand
+        </button>
+      </div>
+    </div>
+  )
+
+  const DataMenu = () => (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.5)',
+      display: 'flex',
+      alignItems: 'flex-end',
+      justifyContent: 'center',
+      zIndex: 1000
+    }} onClick={() => setShowDataMenu(false)}>
+      <div
+        style={{
+          background: 'white',
+          borderRadius: '16px 16px 0 0',
+          padding: '20px',
+          width: '100%',
+          maxWidth: '480px'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#374151', marginBottom: '16px' }}>
+          Data Management
+        </h3>
+        <button
+          onClick={exportData}
+          style={{
+            width: '100%',
+            padding: '14px',
+            background: '#0f766e',
+            color: 'white',
+            border: 'none',
+            borderRadius: '10px',
+            fontSize: '14px',
+            fontWeight: '500',
+            cursor: 'pointer',
+            marginBottom: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px'
+          }}
+        >
+          Export Backup
+        </button>
+        <label style={{
+          width: '100%',
+          padding: '14px',
+          background: 'white',
+          color: '#0f766e',
+          border: '2px solid #0f766e',
+          borderRadius: '10px',
+          fontSize: '14px',
+          fontWeight: '500',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
+          boxSizing: 'border-box'
+        }}>
+          Import Backup
+          <input
+            type="file"
+            accept=".json"
+            onChange={importData}
+            style={{ display: 'none' }}
+          />
+        </label>
+        <button
+          onClick={() => setShowDataMenu(false)}
+          style={{
+            width: '100%',
+            padding: '14px',
+            background: '#f3f4f6',
+            color: '#6b7280',
+            border: 'none',
+            borderRadius: '10px',
+            fontSize: '14px',
+            fontWeight: '500',
+            cursor: 'pointer',
+            marginTop: '10px'
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
 
   const NavBar = () => (
     <div className="nav-bar" style={{
@@ -267,12 +494,56 @@ export default function KneeRehabApp() {
   // Dashboard View
   const DashboardView = () => (
     <div style={{ padding: '20px', paddingBottom: '100px' }}>
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1a1a2e', marginBottom: '2px' }}>
-          Knee Recovery
-        </h1>
-        <p style={{ color: '#6b7280', fontSize: '14px' }}>Your path back to the slopes 🏂</p>
+      <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1a1a2e', marginBottom: '2px' }}>
+            Knee Recovery
+          </h1>
+          <p style={{ color: '#6b7280', fontSize: '14px' }}>Your path back to the slopes</p>
+        </div>
+        <button
+          onClick={() => setShowDataMenu(true)}
+          style={{
+            background: '#f3f4f6',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '8px',
+            cursor: 'pointer',
+            fontSize: '18px'
+          }}
+          aria-label="Data management"
+        >
+          ⚙️
+        </button>
       </div>
+
+      {/* Error Message */}
+      {errorMessage && (
+        <div style={{
+          background: '#fef2f2',
+          border: '1px solid #fecaca',
+          borderRadius: '12px',
+          padding: '12px 16px',
+          marginBottom: '16px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <p style={{ fontSize: '13px', color: '#991b1b' }}>{errorMessage}</p>
+          <button
+            onClick={() => setErrorMessage(null)}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '16px',
+              color: '#991b1b'
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Install Banner */}
       {deferredPrompt && !isInstalled && (
@@ -977,6 +1248,8 @@ export default function KneeRehabApp() {
       background: '#fafafa',
       minHeight: '100vh'
     }}>
+      {showDisclaimer && <DisclaimerModal />}
+      {showDataMenu && <DataMenu />}
       {currentView === 'dashboard' && <DashboardView />}
       {currentView === 'workout' && <WorkoutView />}
       {currentView === 'history' && <HistoryView />}
